@@ -1,0 +1,31 @@
+#  Attitude estimation 
+
+##  1. Overview of the principle 
+
+   Formally, the goal of pose estimation is to estimate a transformation that minimizes the sum of the squared distances between each point on the object model, and the corresponding point in the scene model: In the above equation, a homogeneous representation of the points is used to allow matrix vector multiplication. Attitude estimation is often solved with a robust and outlier-tolerant approach, such as RANSAC. A common way to deal with this is based on feature correspondence, where iterations run the following: (1) Find the middle random sample point and its corresponding point in by matching the nearest neighbor of the invariant feature descriptor. (2) Use the corresponding samples to estimate the hypothesis transformation. (3) Apply the hypothesis transformation to the source point cloud. (4) Find the inner point by searching the spatial nearest neighbor between the transformed source point cloud and the target point cloud through the Euclidean distance threshold. If the number of inner points is too small, go back to step (1). (5) Re-estimate the hypothetical transformation using the inner point correspondence relationship. (6) Compute the distance between the inner point corresponding point pairs, as the final transformation if the distance reaches the minimum value so far. In many cases, the algorithm can be optimized by stopping if it falls below the predefined convergence threshold. Otherwise, the algorithm will run the specified number of iterations. After the first step of each iteration, the above RANSAC pose estimation process is modified by applying a low-level geometric constraint (for the corresponding points on the target object and the scene, according to the geometric consistency that the Euclidean distance between them in their respective spaces is constant). Specifically, the ratio between the side lengths of the virtual polygon formed by the object and the sample points on the scene model is checked. The points corresponding to the sampling of the feature are represented as the side lengths of the object polygon as follows:, the side lengths of the scene polygon are calculated in the same way. Then, the relative dissimilarity vector is calculated by the ratio between the side lengths of the polygon: if the two polygons match exactly, then = 0. Expect the maximum deviation to be below a certain threshold: Therefore, the modification to RANSAC is to insert the following steps in steps (1) and (2): Calculate the vector of dissimilarity between the side lengths of the sampled polygons, and if, return to step (1). This verification step is much less costly than implementing full geometric constraints using steps (2)~ (6), and the closer to 1, the fewer iterations; however, when noise is present, the risk of excluding the correct position is increased. Assuming that this step does not filter out the hypothetical postures of the correctly aligned model, the same probability of success can be expected, but in a much shorter time. It is clear that this assumption holds only for fairly precise geometric observations, so that the polygons are indeed equidistant. If the sensor used shows a large depth error or produces a large distortion effect, the threshold, taking into account these inaccuracies, needs to be set higher. Given the current quality of the sensor, we expect the scope of this problem to be limited. Use, thereby allowing for a 25% maximum edge length difference. Our modification of RANSAC is based on a simple criterion that false assumptions should be filtered out immediately, thus saving time to generate a greater number of hypothetical postures. The method can be considered hierarchical during the rejection of outer points phase, as the method introduces a preliminary low level of polygon-based rejection that does not require postures before the usual medial-based rejection phase. 
+
+   Given the expected probability of success and the expected internal connection score, the formula for calculating the number of required RANSAC iterations is: in general, in step (1) sampling = 3 points, internal connection score estimate = 0.05, expected success rate = 0.99, given Technologies 37000, Euclidean internal connection threshold is set to 0.01 m, the required number of internal connection points is set to 50% of the total number of object model points. 
+
+##  2. Algorithm overview 
+
+   The random sampling consistency algorithm is used for point cloud registration, pcl :: SampleConsensusPrerejective This class inserts a simple but effective "pre-exclusion" step through the local invariant geometry constraint in the standard RANSAC pose estimation loop to avoid validating potentially incorrect pose assumptions. To robustly align the partial/occlusion model, the routine performs the fitting error evaluation using only inliers, i.e. points closer than the Euclidean threshold, set using setInlierFraction (). Use setSimilarityThreshold () in [0,1] to specify the number of pre-rejections or "greed" of the algorithm, where 0 means disabled and 1 means maximum rejection. setSimilarityThreshold () is the improved part of the above principle description, or the standard RANSAC registration algorithm without this line of code. 
+
+##  3. References 
+
+>  See the paper for the specific implementation process:
+
+A. G. Buch, D. Kraft, J.-K. Kämäräinen, H. G. Petersen and N. Krüger. Pose Estimation using Local Structure-Specific Shape and Appearance Context. International Conference on Robotics and Automation (ICRA), 2013.使用局部结构特定的形状和外观上下文的姿态估计doc：Robust pose estimation of rigid objects 
+
+#  Code implementation 
+
+  ```python  
+After clicking on the GitHub Sponsor button above, you will obtain access permissions to my private code repository ( https://github.com/slowlon/my_code_bar ) to view this blog code. By searching the code number of this blog, you can find the code you need, code number is: 2024020309574128568
+  ```  
+#  III. Parameter analysis 
+
+#  IV. Display of results 
+
+ ![avatar]( 20210310194627334.png) 
+
+ The left side is before registration, and the right side is after registration. The initial position of the model point cloud and the scene point cloud  
+
